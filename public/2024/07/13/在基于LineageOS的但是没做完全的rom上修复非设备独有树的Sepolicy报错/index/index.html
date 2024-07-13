@@ -9,7 +9,7 @@
     
     <title>
         
-            Minecraft server diary |
+            在基于LineageOS的但是没做完全的rom上修复非设备独有树的Sepolicy报错 |
         
         GL&#39;s Blog
     </title>
@@ -188,7 +188,7 @@
             <div class="post-content-bottom border-box">
                 
                     <div class="post-title">
-                        Minecraft server diary
+                        在基于LineageOS的但是没做完全的rom上修复非设备独有树的Sepolicy报错
                     </div>
                 
 
@@ -212,12 +212,12 @@
         
             <span class="meta-info-item post-create-date">
                 <i class="icon fa-solid fa-calendar-plus"></i>&nbsp;
-                <span class="datetime">2024-07-08 00:06:52</span>
+                <span class="datetime">2024-07-13 09:36:05</span>
             </span>
 
             <span class="meta-info-item post-update-date">
                 <i class="icon fa-solid fa-file-pen"></i>&nbsp;
-                <span class="datetime" data-updated="Mon Jul 08 2024 00:07:32 GMT+0800">2024-07-08 00:07:32</span>
+                <span class="datetime" data-updated="Sat Jul 13 2024 09:55:59 GMT+0800">2024-07-13 09:55:59</span>
             </span>
         
 
@@ -228,12 +228,12 @@
         
         
             <span class="meta-info-item post-wordcount">
-                <i class="icon fas fa-file-word"></i>&nbsp;<span>412 字</span>
+                <i class="icon fas fa-file-word"></i>&nbsp;<span>514 字</span>
             </span>
         
         
             <span class="meta-info-item post-min2read">
-                <i class="icon fas fa-clock"></i>&nbsp;<span>1 分钟</span>
+                <i class="icon fas fa-clock"></i>&nbsp;<span>2 分钟</span>
             </span>
         
         
@@ -254,12 +254,25 @@
                 <div class="post-content keep-markdown-body ">
                     
 
-                    <h1 id="记最近Minecraft服务器的鼓捣"><a href="#记最近Minecraft服务器的鼓捣" class="headerlink" title="记最近Minecraft服务器的鼓捣"></a>记最近Minecraft服务器的鼓捣</h1><p>也是时候发表这个博客第一个正儿八经的文章了。<br>故事还要从去年暑假说起…去年暑假我们在一个服务器游玩，后来由于腐竹的部分情况我们的服务器也中断了，只留下了对过去的回忆。  </p>
-<p>然后呢，前几天我想服务器存档要过来的时候，发现存档太大，原腐竹传不过来，于是只能要了个备份很早的…好不容易用fabric服务端开服并按照回忆加回了原来的mod并修复了一堆依赖问题之后，又花了大概半小时和小伙伴们找聊天记录，坐标……    </p>
-<p>找坐标不是很麻烦，无非就是查找聊天记录。但是真正令人崩溃的还在后面：<br>我按照坐标找了好久，每一个坐标我都向周围探查了大约几百格，最后才发现……是存档备份压根没有这里的修改…真的那一刻……快哭死了😭😭</p>
-<p>但是好在伙伴还在，记忆还在，大家还会玩mc…所以我们就按照记忆一步步还原了原来的悬空火柴盒， <del>zara和zhuzhu的杰作了哈哈</del>。为了解决好多人家里没ipv6，我又花了10块大洋买了樱花frp的升级…不过看着大家人均几十毫秒的延迟，我的心里是很满足哒~</p>
-<p>之后，在mcmod上找了几个mod，有tpa++，home和sethome…等等，也是让原版服务器稍微方便了一些。</p>
-<h3 id="有朋友，有双手，一切都会好的！！"><a href="#有朋友，有双手，一切都会好的！！" class="headerlink" title="有朋友，有双手，一切都会好的！！"></a>有朋友，有双手，一切都会好的！！</h3>
+                    <p>现在的Evolution X（XYZ）转向了以LineageOS为底层。由于进行一大批自己的bringup，导致了默认环境变量配置出现了许多意外。上代码：</p>
+<figure class="highlight makefile"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">ifneq</span> (<span class="variable">$(LINEAGE_BUILD)</span>,)</span><br><span class="line"><span class="keyword">ifneq</span> (<span class="variable">$(<span class="built_in">wildcard</span> device/lineage/sepolicy/common/sepolicy.mk)</span>,)</span><br><span class="line"><span class="comment">## We need to be sure the global selinux policies are included</span></span><br><span class="line"><span class="comment">## last, to avoid accidental resetting by device configs</span></span><br><span class="line"><span class="variable">$(<span class="built_in">eval</span> include device/lineage/sepolicy/common/sepolicy.mk)</span></span><br><span class="line"><span class="keyword">endif</span></span><br><span class="line"><span class="keyword">endif</span></span><br></pre></td></tr></table></figure>
+<p>让我们来逐条分析每行配置：</p>
+<ul>
+<li>检测了LINEAGE_BUILD环境变量，如果已配置为true则继续进行下面的配置</li>
+<li>检测了是否存在<code>device/lineage/sepolicy/common/sepolicy.mk</code>。如果有则继续向下执行</li>
+<li>两行注释，不用管</li>
+<li>上面的条件全部符合，才能include这一Makefile。<br>很明显，有两步判断，任何一步未成立均会影响构建，导致出现离谱的sepolicy，例如：<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">[  0% 407/61912] //system/sepolicy:vendor_sepolicy.cil.raw Building cil for vendor_sepolicy.cil.raw [common]</span><br><span class="line">FAILED: out/soong/.intermediates/system/sepolicy/vendor_sepolicy.cil.raw/android_common/fajita/vendor_sepolicy.cil.raw</span><br><span class="line">out/host/linux-x86/bin/checkpolicy -C -M -c 30 -o out/soong/.intermediates/system/sepolicy/vendor_sepolicy.cil.raw/android_common/fajita/vendor_sepolicy.cil.raw out/soong/.intermediates/system/sepolicy/vendor_sepolicy.conf/android_common/fajita/vendor_sepolicy.conf &amp;amp;&amp;amp; out/host/linux-x86/bin/build_sepolicy filter_out -f out/soong/.intermediates/system/sepolicy/reqd_policy_mask.cil/android_common/reqd_policy_mask.cil -t out/soong/.intermediates/system/sepolicy/vendor_sepolicy.cil.raw/android_common/fajita/vendor_sepolicy.cil.raw # hash of input list: 552a8aec8b9bb85ede9e6c4edaad35afddf3a8553de6c319f9d84601ba2ce690</span><br><span class="line">device/lineage/sepolicy/qcom/vendor/hal_lineage_livedisplay_qti.te:2:ERROR &#x27;attribute hal_lineage_livedisplay_server is not declared&#x27; at token &#x27;;&#x27; on line 84520:</span><br><span class="line">typeattribute hal_lineage_livedisplay_qti hal_lineage_livedisplay_server;</span><br><span class="line">#line 2</span><br><span class="line">checkpolicy:  error(s) encountered while parsing configuration</span><br></pre></td></tr></table></figure>
+再如：<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">[ 62% 103975/165586] //system/sepolicy:vendor_sepolicy.cil.raw Building cil for vendor_sepolicy.cil.raw [common]</span><br><span class="line">FAILED: out/soong/.intermediates/system/sepolicy/vendor_sepolicy.cil.raw/android_common/fajita/vendor_sepolicy.cil.raw</span><br><span class="line">out/host/linux-x86/bin/checkpolicy -C -M -c 30 -o out/soong/.intermediates/system/sepolicy/vendor_sepolicy.cil.raw/android_common/fajita/vendor_sepolicy.cil.raw out/soong/.intermediates/system/sepolicy/vendor_sepolicy.conf/android_common/fajita/vendor_sepolicy.conf &amp;amp;&amp;amp; out/host/linux-x86/bin/build_sepolicy filter_out -f out/soong/.intermediates/system/sepolicy/reqd_policy_mask.cil/android_common/reqd_policy_mask.cil -t out/soong/.intermediates/system/sepolicy/vendor_sepolicy.cil.raw/android_common/fajita/vendor_sepolicy.cil.raw # hash of input list: 552a8aec8b9bb85ede9e6c4edaad35afddf3a8553de6c319f9d84601ba2ce690</span><br><span class="line">device/lineage/sepolicy/qcom/vendor/hal_lineage_health_default.te:2:ERROR &#x27;syntax error&#x27; at token &#x27;rw_dir_file&#x27; on line 84515:</span><br><span class="line">#line 1 &quot;device/lineage/sepolicy/qcom/vendor/hal_lineage_health_default.te&quot;</span><br><span class="line">rw_dir_file(hal_lineage_health_default, sysfs_battery_supply)</span><br><span class="line">checkpolicy:  error(s) encountered while parsing configuration</span><br></pre></td></tr></table></figure></li>
+</ul>
+<h2 id="解决办法："><a href="#解决办法：" class="headerlink" title="解决办法："></a>解决办法：</h2><ul>
+<li><p>执行编译前执行：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">export LINEAGE_BUILD=true</span><br></pre></td></tr></table></figure>
+<p>或者加入你的common.mk&#x2F;BoardConfig.mk。</p>
+</li>
+<li><p>等待上游修复</p>
+</li>
+</ul>
+<h2 id="3"><a href="#3" class="headerlink" title=":3"></a>:3</h2>
                 </div>
                 
                         
@@ -267,11 +280,11 @@
     <div class="copyright-info-content border-box">
         <div class="copyright-info-top border-box">
             <div class="copyright-post-title border-box text-ellipsis">
-                Minecraft server diary
+                在基于LineageOS的但是没做完全的rom上修复非设备独有树的Sepolicy报错
             </div>
 
             <div class="copyright-post-link border-box text-ellipsis">
-                2024/07/08/Minecraft-server-diary/index/
+                2024/07/13/在基于LineageOS的但是没做完全的rom上修复非设备独有树的Sepolicy报错/index/
             </div>
         </div>
 
@@ -287,7 +300,7 @@
                 <div class="type">
                     发布于
                 </div>
-                <div class="content">2024-07-08 00:06</div>
+                <div class="content">2024-07-13 09:36</div>
             </div>
 
 
@@ -354,31 +367,15 @@
                 
                     <div class="post-nav border-box">
                         
-                            <div class="prev-post">
-                                <a class="prev"
-                                   rel="prev"
-                                   href="/2024/07/13/%E5%9C%A8%E5%9F%BA%E4%BA%8ELineageOS%E7%9A%84%E4%BD%86%E6%98%AF%E6%B2%A1%E5%81%9A%E5%AE%8C%E5%85%A8%E7%9A%84rom%E4%B8%8A%E4%BF%AE%E5%A4%8D%E9%9D%9E%E8%AE%BE%E5%A4%87%E7%8B%AC%E6%9C%89%E6%A0%91%E7%9A%84Sepolicy%E6%8A%A5%E9%94%99/index/"
-                                   title="在基于LineageOS的但是没做完全的rom上修复非设备独有树的Sepolicy报错"
-                                >
-                                    <span class="left arrow-icon flex-center">
-                                        <i class="fas fa-chevron-left"></i>
-                                    </span>
-                                    <span class="title flex-center">
-                                        <span class="post-nav-title-item text-ellipsis">在基于LineageOS的但是没做完全的rom上修复非设备独有树的Sepolicy报错</span>
-                                        <span class="post-nav-item">上一篇</span>
-                                    </span>
-                                </a>
-                            </div>
-                        
                         
                             <div class="next-post">
                                 <a class="next"
                                    rel="next"
-                                   href="/2024/07/01/index/"
-                                   title="about"
+                                   href="/2024/07/08/Minecraft-server-diary/index/"
+                                   title="Minecraft server diary"
                                 >
                                     <span class="title flex-center">
-                                        <span class="post-nav-title-item text-ellipsis">about</span>
+                                        <span class="post-nav-title-item text-ellipsis">Minecraft server diary</span>
                                         <span class="post-nav-item">下一篇</span>
                                     </span>
                                     <span class="right arrow-icon flex-center">
@@ -407,7 +404,7 @@
                 <div class="post-toc-wrap border-box">
     <div class="post-toc border-box">
         <!-- use hexo-blog-encrypt -->
-        <ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E8%AE%B0%E6%9C%80%E8%BF%91Minecraft%E6%9C%8D%E5%8A%A1%E5%99%A8%E7%9A%84%E9%BC%93%E6%8D%A3"><span class="nav-text">记最近Minecraft服务器的鼓捣</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%9C%89%E6%9C%8B%E5%8F%8B%EF%BC%8C%E6%9C%89%E5%8F%8C%E6%89%8B%EF%BC%8C%E4%B8%80%E5%88%87%E9%83%BD%E4%BC%9A%E5%A5%BD%E7%9A%84%EF%BC%81%EF%BC%81"><span class="nav-text">有朋友，有双手，一切都会好的！！</span></a></li></ol></li></ol></li></ol>
+        <ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E8%A7%A3%E5%86%B3%E5%8A%9E%E6%B3%95%EF%BC%9A"><span class="nav-text">解决办法：</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3"><span class="nav-text">:3</span></a></li></ol>
     </div>
 </div>
 
@@ -579,7 +576,7 @@
                 <div class="post-toc-wrap border-box">
     <div class="post-toc border-box">
         <!-- use hexo-blog-encrypt -->
-        <ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#%E8%AE%B0%E6%9C%80%E8%BF%91Minecraft%E6%9C%8D%E5%8A%A1%E5%99%A8%E7%9A%84%E9%BC%93%E6%8D%A3"><span class="nav-text">记最近Minecraft服务器的鼓捣</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%9C%89%E6%9C%8B%E5%8F%8B%EF%BC%8C%E6%9C%89%E5%8F%8C%E6%89%8B%EF%BC%8C%E4%B8%80%E5%88%87%E9%83%BD%E4%BC%9A%E5%A5%BD%E7%9A%84%EF%BC%81%EF%BC%81"><span class="nav-text">有朋友，有双手，一切都会好的！！</span></a></li></ol></li></ol></li></ol>
+        <ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E8%A7%A3%E5%86%B3%E5%8A%9E%E6%B3%95%EF%BC%9A"><span class="nav-text">解决办法：</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3"><span class="nav-text">:3</span></a></li></ol>
     </div>
 </div>
 

@@ -17,4 +17,27 @@
 <p>之后，在mcmod上找了几个mod，有tpa++，home和sethome…等等，也是让原版服务器稍微方便了一些。</p>
 <h3 id="有朋友，有双手，一切都会好的！！"><a href="#有朋友，有双手，一切都会好的！！" class="headerlink" title="有朋友，有双手，一切都会好的！！"></a>有朋友，有双手，一切都会好的！！</h3>]]></content>
   </entry>
+  <entry>
+    <title>在基于LineageOS的但是没做完全的rom上修复非设备独有树的Sepolicy报错</title>
+    <url>/2024/07/13/%E5%9C%A8%E5%9F%BA%E4%BA%8ELineageOS%E7%9A%84%E4%BD%86%E6%98%AF%E6%B2%A1%E5%81%9A%E5%AE%8C%E5%85%A8%E7%9A%84rom%E4%B8%8A%E4%BF%AE%E5%A4%8D%E9%9D%9E%E8%AE%BE%E5%A4%87%E7%8B%AC%E6%9C%89%E6%A0%91%E7%9A%84Sepolicy%E6%8A%A5%E9%94%99/index/</url>
+    <content><![CDATA[<p>现在的Evolution X（XYZ）转向了以LineageOS为底层。由于进行一大批自己的bringup，导致了默认环境变量配置出现了许多意外。上代码：</p>
+<figure class="highlight makefile"><table><tr><td class="code"><pre><span class="line"><span class="keyword">ifneq</span> (<span class="variable">$(LINEAGE_BUILD)</span>,)</span><br><span class="line"><span class="keyword">ifneq</span> (<span class="variable">$(<span class="built_in">wildcard</span> device/lineage/sepolicy/common/sepolicy.mk)</span>,)</span><br><span class="line"><span class="comment">## We need to be sure the global selinux policies are included</span></span><br><span class="line"><span class="comment">## last, to avoid accidental resetting by device configs</span></span><br><span class="line"><span class="variable">$(<span class="built_in">eval</span> include device/lineage/sepolicy/common/sepolicy.mk)</span></span><br><span class="line"><span class="keyword">endif</span></span><br><span class="line"><span class="keyword">endif</span></span><br></pre></td></tr></table></figure>
+<p>让我们来逐条分析每行配置：</p>
+<ul>
+<li>检测了LINEAGE_BUILD环境变量，如果已配置为true则继续进行下面的配置</li>
+<li>检测了是否存在<code>device/lineage/sepolicy/common/sepolicy.mk</code>。如果有则继续向下执行</li>
+<li>两行注释，不用管</li>
+<li>上面的条件全部符合，才能include这一Makefile。<br>很明显，有两步判断，任何一步未成立均会影响构建，导致出现离谱的sepolicy，例如：<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">[  0% 407/61912] //system/sepolicy:vendor_sepolicy.cil.raw Building cil for vendor_sepolicy.cil.raw [common]</span><br><span class="line">FAILED: out/soong/.intermediates/system/sepolicy/vendor_sepolicy.cil.raw/android_common/fajita/vendor_sepolicy.cil.raw</span><br><span class="line">out/host/linux-x86/bin/checkpolicy -C -M -c 30 -o out/soong/.intermediates/system/sepolicy/vendor_sepolicy.cil.raw/android_common/fajita/vendor_sepolicy.cil.raw out/soong/.intermediates/system/sepolicy/vendor_sepolicy.conf/android_common/fajita/vendor_sepolicy.conf &amp;amp;&amp;amp; out/host/linux-x86/bin/build_sepolicy filter_out -f out/soong/.intermediates/system/sepolicy/reqd_policy_mask.cil/android_common/reqd_policy_mask.cil -t out/soong/.intermediates/system/sepolicy/vendor_sepolicy.cil.raw/android_common/fajita/vendor_sepolicy.cil.raw # hash of input list: 552a8aec8b9bb85ede9e6c4edaad35afddf3a8553de6c319f9d84601ba2ce690</span><br><span class="line">device/lineage/sepolicy/qcom/vendor/hal_lineage_livedisplay_qti.te:2:ERROR &#x27;attribute hal_lineage_livedisplay_server is not declared&#x27; at token &#x27;;&#x27; on line 84520:</span><br><span class="line">typeattribute hal_lineage_livedisplay_qti hal_lineage_livedisplay_server;</span><br><span class="line">#line 2</span><br><span class="line">checkpolicy:  error(s) encountered while parsing configuration</span><br></pre></td></tr></table></figure>
+再如：<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">[ 62% 103975/165586] //system/sepolicy:vendor_sepolicy.cil.raw Building cil for vendor_sepolicy.cil.raw [common]</span><br><span class="line">FAILED: out/soong/.intermediates/system/sepolicy/vendor_sepolicy.cil.raw/android_common/fajita/vendor_sepolicy.cil.raw</span><br><span class="line">out/host/linux-x86/bin/checkpolicy -C -M -c 30 -o out/soong/.intermediates/system/sepolicy/vendor_sepolicy.cil.raw/android_common/fajita/vendor_sepolicy.cil.raw out/soong/.intermediates/system/sepolicy/vendor_sepolicy.conf/android_common/fajita/vendor_sepolicy.conf &amp;amp;&amp;amp; out/host/linux-x86/bin/build_sepolicy filter_out -f out/soong/.intermediates/system/sepolicy/reqd_policy_mask.cil/android_common/reqd_policy_mask.cil -t out/soong/.intermediates/system/sepolicy/vendor_sepolicy.cil.raw/android_common/fajita/vendor_sepolicy.cil.raw # hash of input list: 552a8aec8b9bb85ede9e6c4edaad35afddf3a8553de6c319f9d84601ba2ce690</span><br><span class="line">device/lineage/sepolicy/qcom/vendor/hal_lineage_health_default.te:2:ERROR &#x27;syntax error&#x27; at token &#x27;rw_dir_file&#x27; on line 84515:</span><br><span class="line">#line 1 &quot;device/lineage/sepolicy/qcom/vendor/hal_lineage_health_default.te&quot;</span><br><span class="line">rw_dir_file(hal_lineage_health_default, sysfs_battery_supply)</span><br><span class="line">checkpolicy:  error(s) encountered while parsing configuration</span><br></pre></td></tr></table></figure></li>
+</ul>
+<h2 id="解决办法："><a href="#解决办法：" class="headerlink" title="解决办法："></a>解决办法：</h2><ul>
+<li><p>执行编译前执行：</p>
+<figure class="highlight plaintext"><table><tr><td class="code"><pre><span class="line">export LINEAGE_BUILD=true</span><br></pre></td></tr></table></figure>
+<p>或者加入你的common.mk&#x2F;BoardConfig.mk。</p>
+</li>
+<li><p>等待上游修复</p>
+</li>
+</ul>
+<h2 id="3"><a href="#3" class="headerlink" title=":3"></a>:3</h2>]]></content>
+  </entry>
 </search>
